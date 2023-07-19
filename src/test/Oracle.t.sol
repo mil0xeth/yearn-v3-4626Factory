@@ -3,38 +3,40 @@ pragma solidity ^0.8.18;
 import "forge-std/console.sol";
 import {Setup} from "./utils/Setup.sol";
 
-import {StrategyAprOracle} from "../periphery/StrategyAprOracle.sol";
+import {CompoundV3AprOracle} from "../periphery/CompoundV3AprOracle.sol";
 
 contract OracleTest is Setup {
-    StrategyAprOracle public oracle;
+    CompoundV3AprOracle public oracle;
 
     function setUp() public override {
         super.setUp();
-        oracle = new StrategyAprOracle();
+        oracle = new CompoundV3AprOracle("Test oracle", comet);
     }
 
-    function checkOracle(address _strategy, uint256 _delta) public {
+    function checkOracle(address _asset, uint256 _delta) public {
         // Check set up
         // TODO: Add checks for the setup
 
-        uint256 currentApr = oracle.aprAfterDebtChange(_strategy, 0);
+        uint256 currentApr = oracle.aprAfterDebtChange(_asset, 0);
 
         // Should be greater than 0 but likely less than 100%
         assertGt(currentApr, 0, "ZERO");
         assertLt(currentApr, 1e18, "+100%");
 
-        // TODO: Uncomment to test the apr goes up and down based on debt changes
-        /**
-        uint256 negativeDebtChangeApr = oracle.aprAfterDebtChange(_strategy, -int256(_delta));
+        uint256 negativeDebtChangeApr = oracle.aprAfterDebtChange(
+            _asset,
+            -int256(_delta)
+        );
 
         // The apr should go up if deposits go down
         assertLt(currentApr, negativeDebtChangeApr, "negative change");
 
-        uint256 positiveDebtChangeApr = oracle.aprAfterDebtChange(_strategy, _delta);
+        uint256 positiveDebtChangeApr = oracle.aprAfterDebtChange(
+            _asset,
+            int256(_delta)
+        );
 
         assertGt(currentApr, positiveDebtChangeApr, "positive change");
-        */
-
         // TODO: Uncomment if there are setter functions to test.
         /**
         vm.expectRevert("Ownable: caller is not the owner");
@@ -55,7 +57,7 @@ contract OracleTest is Setup {
         // TODO: adjust the number to base _perfenctChange off of.
         uint256 _delta = (_amount * _percentChange) / MAX_BPS;
 
-        checkOracle(address(strategy), _delta);
+        checkOracle(address(asset), _delta);
     }
 
     // TODO: Deploy multiple strategies with differen tokens as `asset` to test against the oracle.

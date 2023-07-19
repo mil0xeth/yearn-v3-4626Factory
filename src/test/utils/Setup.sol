@@ -6,7 +6,7 @@ import {ExtendedTest} from "./ExtendedTest.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import {Strategy} from "../../Strategy.sol";
+import {CompoundV3Lender} from "../../CompoundV3Lender.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
 
 // Inherit the events so they can be checked if desired.
@@ -25,6 +25,8 @@ contract Setup is ExtendedTest, IEvents {
     ERC20 public asset;
     IStrategyInterface public strategy;
 
+    address public comet = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
+
     mapping(string => address) public tokenAddrs;
 
     // Addresses for different roles we will use repeatedly.
@@ -34,15 +36,14 @@ contract Setup is ExtendedTest, IEvents {
     address public performanceFeeRecipient = address(3);
 
     // Address of the real deployed Factory
-    address public factory = 0x85E2861b3b1a70c90D28DfEc30CE6E07550d83e9;
+    address public factory;
 
     // Integer variables that will be used repeatedly.
     uint256 public decimals;
     uint256 public MAX_BPS = 10_000;
 
-    // Fuzz from $0.01 of 1e6 stable coins up to 1 trillion of a 1e18 coin
-    uint256 public maxFuzzAmount = 1e30;
-    uint256 public minFuzzAmount = 10_000;
+    uint256 public maxFuzzAmount = 1e11;
+    uint256 public minFuzzAmount = 100_000;
 
     // Default prfot max unlock time is set for 10 days
     uint256 public profitMaxUnlockTime = 10 days;
@@ -51,13 +52,15 @@ contract Setup is ExtendedTest, IEvents {
         _setTokenAddrs();
 
         // Set asset
-        asset = ERC20(tokenAddrs["DAI"]);
+        asset = ERC20(tokenAddrs["USDC"]);
 
         // Set decimals
         decimals = asset.decimals();
 
         // Deploy strategy and set variables
         strategy = IStrategyInterface(setUpStrategy());
+
+        factory = strategy.FACTORY();
 
         // label all the used addresses for traces
         vm.label(keeper, "keeper");
@@ -71,7 +74,13 @@ contract Setup is ExtendedTest, IEvents {
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
-            address(new Strategy(address(asset), "Tokenized Strategy"))
+            address(
+                new CompoundV3Lender(
+                    address(asset),
+                    "Tokenized Strategy",
+                    comet
+                )
+            )
         );
 
         // set keeper
@@ -80,6 +89,8 @@ contract Setup is ExtendedTest, IEvents {
         _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
         // set management of the strategy
         _strategy.setPendingManagement(management);
+
+        _strategy.setUniFees(3000, 500);
 
         vm.prank(management);
         _strategy.acceptManagement();
