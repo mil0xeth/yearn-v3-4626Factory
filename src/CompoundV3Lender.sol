@@ -15,7 +15,7 @@ import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
 
-    Comet public comet;
+    Comet public immutable comet;
 
     // Rewards Stuff
     CometRewards public constant rewardsContract =
@@ -35,7 +35,6 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
         ERC20(_asset).safeApprove(_comet, type(uint256).max);
 
         // Set the needed variables for the Uni Swapper
-
         // Base will be weth.
         base = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
         // UniV3 mainnet router.
