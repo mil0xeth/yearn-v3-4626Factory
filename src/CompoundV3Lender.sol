@@ -19,9 +19,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
     // Rewards Stuff
     CometRewards public constant rewardsContract =
-        CometRewards(0x1B0e765F6224C21223AeA2af16c1C46E38885a40);
+        CometRewards(0x45939657d1CA34A8FA39A924B71D28Fe8431e581);
 
-    address internal constant comp = 0xc00e94Cb662C3520282E6f5717214004A7f26888;
+    address internal constant comp = 0x8505b9d2254A7Ae468c0E9dd10Ccea3A837aef5c;
 
     constructor(
         address _asset,
@@ -36,7 +36,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
-        base = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        base = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
         // UniV3 mainnet router.
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
