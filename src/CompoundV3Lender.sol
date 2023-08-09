@@ -30,9 +30,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     ) BaseTokenizedStrategy(_asset, _name) {
         comet = Comet(_comet);
 
-        require(Comet(_comet).baseToken() == _asset, "wrong asset");
+        require(comet.baseToken() == _asset, "wrong asset");
 
-        ERC20(_asset).safeApprove(_comet, type(uint256).max);
+        ERC20(asset).safeApprove(_comet, type(uint256).max);
 
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
@@ -40,7 +40,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
         // UniV3 mainnet router.
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
-        minAmountToSell = 1e10;
+        minAmountToSell = 1e14;
+
+        ERC20(comp).safeApprove(router, type(uint256).max);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -86,9 +88,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     function _freeFunds(uint256 _amount) internal override {
         // Need the balance updated
         comet.accrueAccount(address(this));
-        // We dont check available liquidity because we need the tx to
-        // revert if there is not enough liquidity so we dont improperly
-        // pass a loss on to the user withdrawing.
+
         comet.withdraw(
             asset,
             Math.min(comet.balanceOf(address(this)), _amount)
