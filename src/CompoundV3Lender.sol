@@ -23,6 +23,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
     address internal constant comp = 0x8505b9d2254A7Ae468c0E9dd10Ccea3A837aef5c;
 
+    // Repersents if we should claim rewards. Default to true.
+    bool public claimRewards = true;
+
     constructor(
         address _asset,
         string memory _name,
@@ -125,7 +128,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
         // Update balances.
         comet.accrueAccount(address(this));
         // Only sell and reinvest if we arent shutdown
-        if (!TokenizedStrategy.isShutdown()) {
+        if (!TokenizedStrategy.isShutdown() && claimRewards) {
             // Claim and sell any rewards to `asset`. We already accrued.
             rewardsContract.claim(address(comet), address(this), false);
 
@@ -160,6 +163,18 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
         uint256 _minAmountToSell
     ) external onlyManagement {
         minAmountToSell = _minAmountToSell;
+    }
+
+    /**
+     * @notice Set the `claimRewards` bool.
+     * @dev For management to set if the strategy should claim rewards during reports.
+     * Can be turned off due to rewards being turned off or cause of an issue
+     * in either the strategy or compound contracts.
+     *
+     * @param _claimRewards Bool repersenting if rewards should be claimed.
+     */
+    function setClaimRewards(bool _claimRewards) external onlyManagement {
+        claimRewards = _claimRewards;
     }
 
     /**
