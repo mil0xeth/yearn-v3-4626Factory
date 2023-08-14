@@ -21,7 +21,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     CometRewards public constant rewardsContract =
         CometRewards(0x45939657d1CA34A8FA39A924B71D28Fe8431e581);
 
-    address internal constant comp = 0x8505b9d2254A7Ae468c0E9dd10Ccea3A837aef5c;
+    address public rewardToken;
 
     // Repersents if we should claim rewards. Default to true.
     bool public claimRewards = true;
@@ -37,6 +37,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
         ERC20(asset).safeApprove(_comet, type(uint256).max);
 
+        // Set the rewardToken token we will get.
+        rewardToken = rewardsContract.rewardConfig(_comet).token;
+
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
         base = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
@@ -44,8 +47,6 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
         minAmountToSell = 1e14;
-
-        ERC20(comp).safeApprove(router, type(uint256).max);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -132,10 +133,16 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
             // Claim and sell any rewards to `asset`. We already accrued.
             rewardsContract.claim(address(comet), address(this), false);
 
-            uint256 _comp = ERC20(comp).balanceOf(address(this));
+            // Cache reward token.
+            address _rewardToken = rewardToken;
 
-            // The uni swapper will do min checks on _comp.
-            _swapFrom(comp, asset, _comp, 0);
+            // The uni swapper will do min checks on _reward.
+            _swapFrom(
+                _rewardToken,
+                asset,
+                ERC20(_rewardToken).balanceOf(address(this)),
+                0
+            );
 
             // deposit any loose funds
             uint256 looseAsset = ERC20(asset).balanceOf(address(this));
@@ -152,10 +159,10 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     //These will default to 0.
     //Will need to be manually set if asset is incentized before any harvests
     function setUniFees(
-        uint24 _compToEth,
+        uint24 _rewardToEth,
         uint24 _ethToAsset
     ) external onlyManagement {
-        _setUniFees(comp, base, _compToEth);
+        _setUniFees(rewardToken, base, _rewardToEth);
         _setUniFees(base, asset, _ethToAsset);
     }
 
@@ -175,6 +182,15 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
      */
     function setClaimRewards(bool _claimRewards) external onlyManagement {
         claimRewards = _claimRewards;
+    }
+
+    /**
+     * @notice Update the reward token we receive.
+     * @dev This can be used if the reward token is not set when we deploy
+     * but gets added in later.
+     */
+    function updateRewardToken() external onlyManagement {
+        rewardToken = rewardsContract.rewardConfig(address(comet)).token;
     }
 
     /**
