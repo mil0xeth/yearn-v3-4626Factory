@@ -8,12 +8,14 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Comet, CometRewards} from "./interfaces/Compound/V3/CompoundV3.sol";
-
+import {IOracle} from "./interfaces/IOracle.sol";
 // Uniswap V3 Swapper
 import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 
 contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
+
+    address internal constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
 
     Comet public immutable comet;
 
@@ -21,7 +23,12 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     CometRewards public constant rewardsContract =
         CometRewards(0x45939657d1CA34A8FA39A924B71D28Fe8431e581);
 
-    address public rewardToken;
+    IOracle public constant rewardOracle =
+        IOracle(0x2A8758b7257102461BC958279054e372C2b1bDE6);
+
+    uint256 public percentOut = 9_000;
+
+    address public immutable rewardToken;
 
     // Repersents if we should claim rewards. Default to true.
     bool public claimRewards = true;
@@ -42,7 +49,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
-        base = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+        base = weth;
         // UniV3 mainnet router.
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
@@ -135,14 +142,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
             // Cache reward token.
             address _rewardToken = rewardToken;
-
+            uint256 balance = ERC20(_rewardToken).balanceOf(address(this));
             // The uni swapper will do min checks on _reward.
-            _swapFrom(
-                _rewardToken,
-                asset,
-                ERC20(_rewardToken).balanceOf(address(this)),
-                0
-            );
+            _swapFrom(_rewardToken, asset, balance, _getAmountOut(balance));
 
             // deposit any loose funds
             uint256 looseAsset = ERC20(asset).balanceOf(address(this));
@@ -156,20 +158,41 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
             ERC20(asset).balanceOf(address(this));
     }
 
+    // Treats USDC as 1 - 1 for USD. `percentOut` can be adjusted if this is not true.
+    function _getAmountOut(uint256 _amount) internal view returns (uint256) {
+        uint256 _percentOut = percentOut;
+        // Dont call the oracle if percent out is 0.
+        if (_percentOut == 0) return 0;
+        // asset is 1e6 answer is 1e18 and _amount 1e18. So 6 + 2 + 12 = 1e20.
+        return
+            (rewardOracle.latestAnswer() * _amount * percentOut) /
+            1e20 /
+            10_000;
+    }
+
     //These will default to 0.
     //Will need to be manually set if asset is incentized before any harvests
     function setUniFees(
-        uint24 _rewardToEth,
-        uint24 _ethToAsset
+        uint24 _rewardToBase,
+        uint24 _baseToAsset
     ) external onlyManagement {
-        _setUniFees(rewardToken, base, _rewardToEth);
-        _setUniFees(base, asset, _ethToAsset);
+        _setUniFees(rewardToken, base, _rewardToBase);
+        _setUniFees(base, asset, _baseToAsset);
     }
 
     function setMinAmountToSell(
         uint256 _minAmountToSell
     ) external onlyManagement {
         minAmountToSell = _minAmountToSell;
+    }
+
+    /**
+     * @notice Swap the base token between `asset` and `weth`.
+     * @dev This can be used for management to change which pool
+     * to trade reward tokens.
+     */
+    function swapBase() external onlyManagement {
+        base = base == asset ? weth : asset;
     }
 
     /**
@@ -185,12 +208,16 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     }
 
     /**
-     * @notice Update the reward token we receive.
-     * @dev This can be used if the reward token is not set when we deploy
-     * but gets added in later.
+     * @notice Set the `percentOut` for {_getAmountOut}.
+     * @dev Amount in basis pasis point to expect out based on oracle
+     * price. I.E. 9_000 = 90% of the oracle price.
+     *
+     * NOTE: Can be set to 0 to not use the oracle.
+     *
+     * @param _percentOut Basis point to set as `percentOut`.
      */
-    function updateRewardToken() external onlyManagement {
-        rewardToken = rewardsContract.rewardConfig(address(comet)).token;
+    function setPercentOut(uint256 _percentOut) external onlyManagement {
+        percentOut = _percentOut;
     }
 
     /**
