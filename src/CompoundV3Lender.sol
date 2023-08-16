@@ -162,7 +162,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     function _getAmountOut(uint256 _amount) internal view returns (uint256) {
         uint256 _percentOut = percentOut;
         // Dont call the oracle if percent out is 0.
-        if (_percentOut == 0) return 0;
+        if (_amount == 0 || _percentOut == 0) return 0;
         // asset is 1e6 answer is 1e18 and _amount 1e18. So 6 + 2 + 12 = 1e20.
         return
             (rewardOracle.latestAnswer() * _amount * percentOut) /
