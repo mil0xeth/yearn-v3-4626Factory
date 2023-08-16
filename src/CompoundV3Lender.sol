@@ -15,6 +15,8 @@ import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
 
+    address internal constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+
     Comet public immutable comet;
 
     // Rewards Stuff
@@ -42,7 +44,7 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
 
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
-        base = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+        base = weth;
         // UniV3 mainnet router.
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
@@ -170,6 +172,15 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
         uint256 _minAmountToSell
     ) external onlyManagement {
         minAmountToSell = _minAmountToSell;
+    }
+
+    /**
+    * @notice Swap the base token between `asset` and `weth`.
+    * @dev This can be used for management to change which pool
+    * to trade reward tokens.
+     */
+    function swapBase() external onlyManagement {
+        base = base == asset ? weth : asset;
     }
 
     /**
