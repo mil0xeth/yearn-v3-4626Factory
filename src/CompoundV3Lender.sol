@@ -161,11 +161,11 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     //These will default to 0.
     //Will need to be manually set if asset is incentized before any harvests
     function setUniFees(
-        uint24 _rewardToEth,
-        uint24 _ethToAsset
+        uint24 _rewardToBase,
+        uint24 _baseToAsset
     ) external onlyManagement {
-        _setUniFees(rewardToken, base, _rewardToEth);
-        _setUniFees(base, asset, _ethToAsset);
+        _setUniFees(rewardToken, base, _rewardToBase);
+        _setUniFees(base, asset, _baseToAsset);
     }
 
     function setMinAmountToSell(
@@ -175,9 +175,9 @@ contract CompoundV3Lender is BaseTokenizedStrategy, UniswapV3Swapper {
     }
 
     /**
-    * @notice Swap the base token between `asset` and `weth`.
-    * @dev This can be used for management to change which pool
-    * to trade reward tokens.
+     * @notice Swap the base token between `asset` and `weth`.
+     * @dev This can be used for management to change which pool
+     * to trade reward tokens.
      */
     function swapBase() external onlyManagement {
         base = base == asset ? weth : asset;
