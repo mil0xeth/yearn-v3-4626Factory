@@ -135,7 +135,7 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         // Update balances.
         comet.accrueAccount(address(this));
 
-        // Only sell
+        // Only sell if claimRewards is true.
         if (claimRewards) {
             // Claim and sell any rewards to `asset`. We already accrued.
             rewardsContract.claim(address(comet), address(this), false);
