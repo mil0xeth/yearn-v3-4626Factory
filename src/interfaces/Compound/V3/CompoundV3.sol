@@ -129,6 +129,10 @@ interface Comet is IERC20 {
     function isLiquidatable(address _address) external view returns (bool);
 
     function baseBorrowMin() external view returns (uint256);
+
+    function isSupplyPaused() external view returns (bool);
+
+    function isWithdrawPaused() external view returns (bool);
 }
 
 interface CometRewards {
