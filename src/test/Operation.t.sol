@@ -24,7 +24,7 @@ contract OperationTest is Setup {
 
         assertEq(strategy.base(), 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619);
 
-        vm.expectRevert("!Authorized");
+        vm.expectRevert("!management");
         vm.prank(user);
         strategy.swapBase();
 
@@ -216,31 +216,37 @@ contract OperationTest is Setup {
     function test_tendTrigger(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
 
-        assertTrue(!strategy.tendTrigger());
+        (bool trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
 
-        assertTrue(!strategy.tendTrigger());
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
         // Skip some time
         skip(1 days);
 
-        assertTrue(!strategy.tendTrigger());
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
         vm.prank(keeper);
         strategy.report();
 
-        assertTrue(!strategy.tendTrigger());
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
         // Unlock Profits
         skip(strategy.profitMaxUnlockTime());
 
-        assertTrue(!strategy.tendTrigger());
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
         vm.prank(user);
         strategy.redeem(_amount, user, user);
 
-        assertTrue(!strategy.tendTrigger());
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
     }
 }

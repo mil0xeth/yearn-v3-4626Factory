@@ -18,7 +18,10 @@ contract CompoundV3AprOracle is AprOracleBase {
 
     uint256 internal SCALER;
 
-    constructor(string memory _name, address _comet) AprOracleBase(_name) {
+    constructor(
+        string memory _name,
+        address _comet
+    ) AprOracleBase(_name, msg.sender) {
         comet = Comet(_comet);
 
         baseToken = Comet(_comet).baseToken();
@@ -40,8 +43,8 @@ contract CompoundV3AprOracle is AprOracleBase {
     function setPriceFeeds(
         address _baseTokenPriceFeed,
         address _rewardTokenPriceFeed
-    ) external onlyOwner {
-        // just check the call doesnt revert. We dont care about the amount returned
+    ) external onlyGovernance {
+        // just check the call doesn't revert. We don't care about the amount returned
         comet.getPrice(_baseTokenPriceFeed);
         comet.getPrice(_rewardTokenPriceFeed);
         baseTokenPriceFeed = _baseTokenPriceFeed;
