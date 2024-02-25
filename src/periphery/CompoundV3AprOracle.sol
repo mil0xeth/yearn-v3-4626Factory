@@ -56,7 +56,10 @@ contract CompoundV3AprOracle is AprOracleBase {
         address _strategy,
         int256 _delta
     ) external view override returns (uint256) {
-        require(IStrategyInterface(_strategy).asset() == baseToken, "wrong asset");
+        require(
+            IStrategyInterface(_strategy).asset() == baseToken,
+            "wrong asset"
+        );
 
         uint256 borrows = comet.totalBorrow();
         uint256 supply = comet.totalSupply();
