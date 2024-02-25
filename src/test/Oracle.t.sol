@@ -10,21 +10,20 @@ contract OracleTest is Setup {
 
     function setUp() public override {
         super.setUp();
-        oracle = new CompoundV3AprOracle("Test oracle", comet);
+        oracle = new CompoundV3AprOracle("name", address(comet));
     }
 
-    function checkOracle(address _asset, uint256 _delta) public {
-        // Check set up
-        // TODO: Add checks for the setup
-
-        uint256 currentApr = oracle.aprAfterDebtChange(_asset, 0);
+    function checkOracle(address _strategy, uint256 _delta) public {
+        uint256 currentApr = oracle.aprAfterDebtChange(_strategy, 0);
+        console.log("APR ", currentApr);
 
         // Should be greater than 0 but likely less than 100%
         assertGt(currentApr, 0, "ZERO");
         assertLt(currentApr, 1e18, "+100%");
 
+        // TODO: Uncomment to test the apr goes up and down based on debt changes
         uint256 negativeDebtChangeApr = oracle.aprAfterDebtChange(
-            _asset,
+            _strategy,
             -int256(_delta)
         );
 
@@ -32,20 +31,11 @@ contract OracleTest is Setup {
         assertLt(currentApr, negativeDebtChangeApr, "negative change");
 
         uint256 positiveDebtChangeApr = oracle.aprAfterDebtChange(
-            _asset,
+            _strategy,
             int256(_delta)
         );
 
         assertGt(currentApr, positiveDebtChangeApr, "positive change");
-        // TODO: Uncomment if there are setter functions to test.
-        /**
-        vm.expectRevert("Ownable: caller is not the owner");
-        oracle.setterFunction(setterVariable, sender=user);
-    
-        oracle.setterFunction(setterVariable, sender=management);
-
-        assertEq(oracle.setterVariable(), setterVariable);
-        */
     }
 
     function test_oracle(uint256 _amount, uint16 _percentChange) public {
@@ -54,11 +44,9 @@ contract OracleTest is Setup {
 
         mintAndDepositIntoStrategy(strategy, user, _amount);
 
-        // TODO: adjust the number to base _perfenctChange off of.
+        // TODO: adjust the number to base _percentChange off of.
         uint256 _delta = (_amount * _percentChange) / MAX_BPS;
 
-        checkOracle(address(asset), _delta);
+        checkOracle(address(strategy), _delta);
     }
-
-    // TODO: Deploy multiple strategies with differen tokens as `asset` to test against the oracle.
 }

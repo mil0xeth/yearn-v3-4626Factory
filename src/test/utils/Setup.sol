@@ -25,7 +25,7 @@ contract Setup is ExtendedTest, IEvents {
     ERC20 public asset;
     IStrategyInterface public strategy;
 
-    address public comet = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
+    address public comet = 0xF25212E676D1F7F89Cd72fFEe66158f541246445;
 
     mapping(string => address) public tokenAddrs;
 
@@ -52,7 +52,7 @@ contract Setup is ExtendedTest, IEvents {
         _setTokenAddrs();
 
         // Set asset
-        asset = ERC20(tokenAddrs["USDC"]);
+        asset = ERC20(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
 
         // Set decimals
         decimals = asset.decimals();

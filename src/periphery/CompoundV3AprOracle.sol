@@ -4,10 +4,11 @@ pragma solidity 0.8.18;
 import {AprOracleBase} from "@periphery/AprOracle/AprOracleBase.sol";
 
 import {Comet, CometRewards} from "../interfaces/Compound/V3/CompoundV3.sol";
+import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
 
 contract CompoundV3AprOracle is AprOracleBase {
-    Comet public comet;
-    address public baseToken;
+    Comet public immutable comet;
+    address public immutable baseToken;
     // price feeds for the reward apr calculation, can be updated manually if needed
     address public rewardTokenPriceFeed;
     address public baseTokenPriceFeed;
@@ -16,9 +17,12 @@ contract CompoundV3AprOracle is AprOracleBase {
     uint64 internal constant SECONDS_PER_DAY = 60 * 60 * 24;
     uint64 internal constant SECONDS_PER_YEAR = 365 days;
 
-    uint256 internal SCALER;
+    uint256 internal immutable SCALER;
 
-    constructor(string memory _name, address _comet) AprOracleBase(_name) {
+    constructor(
+        string memory _name,
+        address _comet
+    ) AprOracleBase(_name, msg.sender) {
         comet = Comet(_comet);
 
         baseToken = Comet(_comet).baseToken();
@@ -34,14 +38,14 @@ contract CompoundV3AprOracle is AprOracleBase {
         // set default price feeds
         baseTokenPriceFeed = Comet(_comet).baseTokenPriceFeed();
         // default to COMP/USD
-        rewardTokenPriceFeed = 0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5;
+        rewardTokenPriceFeed = 0x2A8758b7257102461BC958279054e372C2b1bDE6;
     }
 
     function setPriceFeeds(
         address _baseTokenPriceFeed,
         address _rewardTokenPriceFeed
-    ) external onlyOwner {
-        // just check the call doesnt revert. We dont care about the amount returned
+    ) external onlyGovernance {
+        // just check the call doesn't revert. We don't care about the amount returned
         comet.getPrice(_baseTokenPriceFeed);
         comet.getPrice(_rewardTokenPriceFeed);
         baseTokenPriceFeed = _baseTokenPriceFeed;
@@ -49,10 +53,13 @@ contract CompoundV3AprOracle is AprOracleBase {
     }
 
     function aprAfterDebtChange(
-        address _asset,
+        address _strategy,
         int256 _delta
     ) external view override returns (uint256) {
-        require(_asset == baseToken, "wrong asset");
+        require(
+            IStrategyInterface(_strategy).asset() == baseToken,
+            "wrong asset"
+        );
 
         uint256 borrows = comet.totalBorrow();
         uint256 supply = comet.totalSupply();
