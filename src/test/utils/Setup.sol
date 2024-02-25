@@ -6,7 +6,7 @@ import {ExtendedTest} from "./ExtendedTest.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import {CompoundV3Lender} from "../../CompoundV3Lender.sol";
+import {CompoundV3LenderFactory, CompoundV3Lender} from "../../CompoundV3LenderFactory.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
 
 // Inherit the events so they can be checked if desired.
@@ -24,6 +24,8 @@ contract Setup is ExtendedTest, IEvents {
     // Contract instancees that we will use repeatedly.
     ERC20 public asset;
     IStrategyInterface public strategy;
+
+    CompoundV3LenderFactory public lenderFactory;
 
     address public comet = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
 
@@ -51,6 +53,12 @@ contract Setup is ExtendedTest, IEvents {
     function setUp() public virtual {
         _setTokenAddrs();
 
+        lenderFactory = new CompoundV3LenderFactory(
+            management,
+            performanceFeeRecipient,
+            keeper
+        );
+
         // Set asset
         asset = ERC20(tokenAddrs["USDC"]);
 
@@ -75,25 +83,20 @@ contract Setup is ExtendedTest, IEvents {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
             address(
-                new CompoundV3Lender(
+                lenderFactory.newCompoundV3Lender(
                     address(asset),
                     "Tokenized Strategy",
-                    comet
+                    comet,
+                    0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5
                 )
             )
         );
 
-        // set keeper
-        _strategy.setKeeper(keeper);
-        // set treasury
-        _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
-        // set management of the strategy
-        _strategy.setPendingManagement(management);
-
-        _strategy.setUniFees(3000, 500);
-
         vm.prank(management);
         _strategy.acceptManagement();
+
+        vm.prank(management);
+        _strategy.setUniFees(3000, 500);
 
         return address(_strategy);
     }

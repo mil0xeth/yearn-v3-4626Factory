@@ -16,19 +16,18 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
 
     address internal constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-    Comet public immutable comet;
-
     // Rewards Stuff
     CometRewards public constant rewardsContract =
         CometRewards(0x1B0e765F6224C21223AeA2af16c1C46E38885a40);
 
-    // 0x1B39Ee86Ec5979ba5C322b826B3ECb8C79991699 comp/eth
-    IOracle public constant rewardOracle =
-        IOracle(0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5);
-
-    uint256 public percentOut = 9_500;
+    Comet public immutable comet;
 
     address public immutable rewardToken;
+
+    // Reward token => asset oracle for swap amountOut.
+    IOracle public immutable rewardOracle;
+
+    uint256 public percentOut = 9_500;
 
     // Represents if we should claim rewards. Default to true.
     bool public claimRewards = true;
@@ -36,7 +35,8 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
     constructor(
         address _asset,
         string memory _name,
-        address _comet
+        address _comet,
+        address _rewardToAssetOracle
     ) BaseStrategy(_asset, _name) {
         comet = Comet(_comet);
 
@@ -47,13 +47,15 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         // Set the rewardToken token we will get.
         rewardToken = rewardsContract.rewardConfig(_comet).token;
 
+        rewardOracle = IOracle(_rewardToAssetOracle);
+
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
         base = weth;
         // UniV3 mainnet router.
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
-        minAmountToSell = 1e14;
+        minAmountToSell = 1e16;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -86,7 +88,7 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * entirely permissionless and thus can be sandwiched or otherwise
      * manipulated.
      *
-     * Should not rely on asset.balanceOf(address(this)) calls other than
+     * Should not rely on balanceOfAsset() calls other than
      * for diff accounting purposes.
      *
      * Any difference between `_amount` and what is actually freed will be
@@ -148,15 +150,17 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         // Only reinvest if we aren't shutdown and supply isn't paused.
         if (!TokenizedStrategy.isShutdown() && !comet.isSupplyPaused()) {
             // deposit any loose funds
-            uint256 looseAsset = asset.balanceOf(address(this));
+            uint256 looseAsset = balanceOfAsset();
             if (looseAsset > 0) {
                 comet.supply(address(asset), looseAsset);
             }
         }
 
-        _totalAssets =
-            comet.balanceOf(address(this)) +
-            asset.balanceOf(address(this));
+        _totalAssets = comet.balanceOf(address(this)) + balanceOfAsset();
+    }
+
+    function balanceOfAsset() public view returns (uint256) {
+        return asset.balanceOf(address(this));
     }
 
     // Treats USDC as 1 - 1 for USD. `percentOut` can be adjusted if this is not true.
@@ -266,10 +270,10 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         address /*_owner*/
     ) public view override returns (uint256) {
         if (comet.isWithdrawPaused()) {
-            return asset.balanceOf(address(this));
+            return balanceOfAsset();
         }
 
-        return asset.balanceOf(address(this)) + asset.balanceOf(address(comet));
+        return balanceOfAsset() + asset.balanceOf(address(comet));
     }
 
     /**

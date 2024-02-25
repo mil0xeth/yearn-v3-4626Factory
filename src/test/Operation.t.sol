@@ -5,7 +5,7 @@ import "forge-std/console.sol";
 import {Setup, ERC20} from "./utils/Setup.sol";
 
 contract OperationTest is Setup {
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
     }
 
