@@ -22,13 +22,13 @@ contract OperationTest is Setup {
     function test_switchBase(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
 
-        assertEq(strategy.base(), 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619);
+        assertEq(strategy.base(), 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
         vm.expectRevert("!management");
         vm.prank(user);
         strategy.swapBase();
 
-        assertEq(strategy.base(), 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619);
+        assertEq(strategy.base(), 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
         vm.prank(management);
         strategy.swapBase();
@@ -36,7 +36,7 @@ contract OperationTest is Setup {
         assertEq(strategy.base(), address(asset));
 
         vm.prank(management);
-        strategy.setUniFees(10000, 0);
+        strategy.setUniFees(3000, 0);
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);

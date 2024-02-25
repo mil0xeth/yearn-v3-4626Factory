@@ -14,18 +14,19 @@ import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
 
-    address internal constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+    address internal constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     Comet public immutable comet;
 
     // Rewards Stuff
     CometRewards public constant rewardsContract =
-        CometRewards(0x45939657d1CA34A8FA39A924B71D28Fe8431e581);
+        CometRewards(0x1B0e765F6224C21223AeA2af16c1C46E38885a40);
 
+    // 0x1B39Ee86Ec5979ba5C322b826B3ECb8C79991699 comp/eth
     IOracle public constant rewardOracle =
-        IOracle(0x2A8758b7257102461BC958279054e372C2b1bDE6);
+        IOracle(0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5);
 
-    uint256 public percentOut = 9_000;
+    uint256 public percentOut = 9_500;
 
     address public immutable rewardToken;
 
@@ -96,9 +97,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * @param _amount, The amount of 'asset' to be freed.
      */
     function _freeFunds(uint256 _amount) internal override {
-        // Need the balance updated
-        comet.accrueAccount(address(this));
-
         comet.withdraw(
             address(asset),
             Math.min(comet.balanceOf(address(this)), _amount)
@@ -132,13 +130,10 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         override
         returns (uint256 _totalAssets)
     {
-        // Update balances.
-        comet.accrueAccount(address(this));
-
         // Only sell if claimRewards is true.
         if (claimRewards) {
-            // Claim and sell any rewards to `asset`. We already accrued.
-            rewardsContract.claim(address(comet), address(this), false);
+            // Claim and sell any rewards to `asset` and accrue.
+            rewardsContract.claim(address(comet), address(this), true);
 
             uint256 balance = ERC20(rewardToken).balanceOf(address(this));
             // The uni swapper will do min checks on _reward.
@@ -261,13 +256,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * @dev Defaults to an unlimited amount for any address. But can
      * be overridden by strategists.
      *
-     * This function will be called before any withdraw or redeem to enforce
-     * any limits desired by the strategist. This can be used for illiquid
-     * or sandwichable strategies. It should never be lower than `totalIdle`.
-     *
-     *   EX:
-     *       return TokenIzedStrategy.totalIdle();
-     *
      * This does not need to take into account the `_owner`'s share balance
      * or conversion rates from shares to assets.
      *
@@ -278,10 +266,10 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         address /*_owner*/
     ) public view override returns (uint256) {
         if (comet.isWithdrawPaused()) {
-            return TokenizedStrategy.totalIdle();
+            return asset.balanceOf(address(this));
         }
 
-        return TokenizedStrategy.totalIdle() + asset.balanceOf(address(comet));
+        return asset.balanceOf(address(this)) + asset.balanceOf(address(comet));
     }
 
     /**
@@ -306,10 +294,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        comet.accrueAccount(address(this));
-        comet.withdraw(
-            address(asset),
-            Math.min(comet.balanceOf(address(this)), _amount)
-        );
+        _freeFunds(_amount);
     }
 }
