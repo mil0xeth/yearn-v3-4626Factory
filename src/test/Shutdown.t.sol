@@ -4,11 +4,11 @@ import "forge-std/console.sol";
 import {Setup} from "./utils/Setup.sol";
 
 contract ShutdownTest is Setup {
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
     }
 
-    function test_shudownCanWithdraw(uint256 _amount) public {
+    function test_shutdownCanWithdraw(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
 
         // Deposit into strategy

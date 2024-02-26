@@ -14,20 +14,20 @@ import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
 
-    address internal constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
-
-    Comet public immutable comet;
+    address internal constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // Rewards Stuff
     CometRewards public constant rewardsContract =
-        CometRewards(0x45939657d1CA34A8FA39A924B71D28Fe8431e581);
+        CometRewards(0x1B0e765F6224C21223AeA2af16c1C46E38885a40);
 
-    IOracle public constant rewardOracle =
-        IOracle(0x2A8758b7257102461BC958279054e372C2b1bDE6);
-
-    uint256 public percentOut = 9_000;
+    Comet public immutable comet;
 
     address public immutable rewardToken;
+
+    // Reward token => asset oracle for swap amountOut.
+    IOracle public immutable rewardOracle;
+
+    uint256 public percentOut = 9_500;
 
     // Represents if we should claim rewards. Default to true.
     bool public claimRewards = true;
@@ -35,7 +35,8 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
     constructor(
         address _asset,
         string memory _name,
-        address _comet
+        address _comet,
+        address _rewardToAssetOracle
     ) BaseStrategy(_asset, _name) {
         comet = Comet(_comet);
 
@@ -46,13 +47,15 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         // Set the rewardToken token we will get.
         rewardToken = rewardsContract.rewardConfig(_comet).token;
 
+        rewardOracle = IOracle(_rewardToAssetOracle);
+
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
         base = weth;
         // UniV3 mainnet router.
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
         // Set the min amount for the swapper to sell
-        minAmountToSell = 1e14;
+        minAmountToSell = 1e16;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -85,7 +88,7 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * entirely permissionless and thus can be sandwiched or otherwise
      * manipulated.
      *
-     * Should not rely on asset.balanceOf(address(this)) calls other than
+     * Should not rely on balanceOfAsset() calls other than
      * for diff accounting purposes.
      *
      * Any difference between `_amount` and what is actually freed will be
@@ -96,9 +99,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * @param _amount, The amount of 'asset' to be freed.
      */
     function _freeFunds(uint256 _amount) internal override {
-        // Need the balance updated
-        comet.accrueAccount(address(this));
-
         comet.withdraw(
             address(asset),
             Math.min(comet.balanceOf(address(this)), _amount)
@@ -132,13 +132,10 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         override
         returns (uint256 _totalAssets)
     {
-        // Update balances.
-        comet.accrueAccount(address(this));
-
         // Only sell if claimRewards is true.
         if (claimRewards) {
-            // Claim and sell any rewards to `asset`. We already accrued.
-            rewardsContract.claim(address(comet), address(this), false);
+            // Claim and sell any rewards to `asset` and accrue.
+            rewardsContract.claim(address(comet), address(this), true);
 
             uint256 balance = ERC20(rewardToken).balanceOf(address(this));
             // The uni swapper will do min checks on _reward.
@@ -153,15 +150,17 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         // Only reinvest if we aren't shutdown and supply isn't paused.
         if (!TokenizedStrategy.isShutdown() && !comet.isSupplyPaused()) {
             // deposit any loose funds
-            uint256 looseAsset = asset.balanceOf(address(this));
+            uint256 looseAsset = balanceOfAsset();
             if (looseAsset > 0) {
                 comet.supply(address(asset), looseAsset);
             }
         }
 
-        _totalAssets =
-            comet.balanceOf(address(this)) +
-            asset.balanceOf(address(this));
+        _totalAssets = comet.balanceOf(address(this)) + balanceOfAsset();
+    }
+
+    function balanceOfAsset() public view returns (uint256) {
+        return asset.balanceOf(address(this));
     }
 
     // Treats USDC as 1 - 1 for USD. `percentOut` can be adjusted if this is not true.
@@ -261,13 +260,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * @dev Defaults to an unlimited amount for any address. But can
      * be overridden by strategists.
      *
-     * This function will be called before any withdraw or redeem to enforce
-     * any limits desired by the strategist. This can be used for illiquid
-     * or sandwichable strategies. It should never be lower than `totalIdle`.
-     *
-     *   EX:
-     *       return TokenIzedStrategy.totalIdle();
-     *
      * This does not need to take into account the `_owner`'s share balance
      * or conversion rates from shares to assets.
      *
@@ -278,10 +270,10 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         address /*_owner*/
     ) public view override returns (uint256) {
         if (comet.isWithdrawPaused()) {
-            return TokenizedStrategy.totalIdle();
+            return balanceOfAsset();
         }
 
-        return TokenizedStrategy.totalIdle() + asset.balanceOf(address(comet));
+        return balanceOfAsset() + asset.balanceOf(address(comet));
     }
 
     /**
@@ -306,10 +298,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        comet.accrueAccount(address(this));
-        comet.withdraw(
-            address(asset),
-            Math.min(comet.balanceOf(address(this)), _amount)
-        );
+        _freeFunds(_amount);
     }
 }

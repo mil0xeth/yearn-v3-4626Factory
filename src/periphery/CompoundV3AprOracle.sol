@@ -38,7 +38,7 @@ contract CompoundV3AprOracle is AprOracleBase {
         // set default price feeds
         baseTokenPriceFeed = Comet(_comet).baseTokenPriceFeed();
         // default to COMP/USD
-        rewardTokenPriceFeed = 0x2A8758b7257102461BC958279054e372C2b1bDE6;
+        rewardTokenPriceFeed = 0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5;
     }
 
     function setPriceFeeds(
