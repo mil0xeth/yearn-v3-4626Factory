@@ -27,6 +27,8 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
     // Reward token => asset oracle for swap amountOut.
     IOracle public immutable rewardOracle;
 
+    uint256 internal immutable oracleScaler;
+
     uint256 public percentOut = 9_500;
 
     // Represents if we should claim rewards. Default to true.
@@ -48,6 +50,14 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         rewardToken = rewardsContract.rewardConfig(_comet).token;
 
         rewardOracle = IOracle(_rewardToAssetOracle);
+
+        // Store the amount to scale the answer based on decimals.
+        uint256 assetDecimals = asset.decimals();
+        oracleScaler =
+            10 **
+                (assetDecimals + // Need to at least divide by the asset decimals
+                    (rewardOracle.decimals() - assetDecimals) +
+                    (ERC20(rewardToken).decimals() - assetDecimals));
 
         // Set the needed variables for the Uni Swapper
         // Base will be weth.
@@ -168,11 +178,12 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
         uint256 _percentOut = percentOut;
         // Don't call the oracle if percent out is 0.
         if (_amount == 0 || _percentOut == 0) return 0;
-        // asset is 1e6 answer is 1e8 and _amount 1e18. So 6 + 2 + 12 = 1e20.
-        return
-            (rewardOracle.latestAnswer() * _amount * percentOut) /
-            1e20 /
-            10_000;
+
+        // Get oracle data.
+        int256 answer;
+        (, answer, , , ) = rewardOracle.latestRoundData();
+
+        return (uint256(answer) * _amount * percentOut) / oracleScaler / 10_000;
     }
 
     //These will default to 0.
