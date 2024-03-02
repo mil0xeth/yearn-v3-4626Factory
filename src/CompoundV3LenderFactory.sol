@@ -14,7 +14,7 @@ contract CompoundV3LenderFactory {
     address public performanceFeeRecipient;
     address public keeper;
 
-    /// @notice Track the deployments. asset => pool => strategy
+    /// @notice Track the deployments. comet => strategy
     mapping(address => address) public deployments;
 
     constructor(
@@ -22,6 +22,7 @@ contract CompoundV3LenderFactory {
         address _performanceFeeRecipient,
         address _keeper
     ) {
+        require(_management != address(0), "ZERO ADDRESS");
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
@@ -40,8 +41,8 @@ contract CompoundV3LenderFactory {
         address _comet,
         address _rewardToAssetOracle
     ) external returns (address) {
-        if (deployments[_asset] != address(0))
-            revert AlreadyDeployed(deployments[_asset]);
+        if (deployments[_comet] != address(0))
+            revert AlreadyDeployed(deployments[_comet]);
         // We need to use the custom interface with the
         // tokenized strategies available setters.
         IStrategyInterface newStrategy = IStrategyInterface(
@@ -63,7 +64,7 @@ contract CompoundV3LenderFactory {
 
         emit NewCompoundV3Lender(address(newStrategy), _asset);
 
-        deployments[_asset] = address(newStrategy);
+        deployments[_comet] = address(newStrategy);
         return address(newStrategy);
     }
 
@@ -81,7 +82,7 @@ contract CompoundV3LenderFactory {
     function isDeployedStrategy(
         address _strategy
     ) external view returns (bool) {
-        address _asset = IStrategyInterface(_strategy).asset();
-        return deployments[_asset] == _strategy;
+        address _comet = IStrategyInterface(_strategy).comet();
+        return deployments[_comet] == _strategy;
     }
 }
