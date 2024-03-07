@@ -157,15 +157,6 @@ contract CompoundV3Lender is BaseStrategy, UniswapV3Swapper {
             );
         }
 
-        // Only reinvest if we aren't shutdown and supply isn't paused.
-        if (!TokenizedStrategy.isShutdown() && !comet.isSupplyPaused()) {
-            // deposit any loose funds
-            uint256 looseAsset = balanceOfAsset();
-            if (looseAsset > 0) {
-                comet.supply(address(asset), looseAsset);
-            }
-        }
-
         _totalAssets = comet.balanceOf(address(this)) + balanceOfAsset();
     }
 
