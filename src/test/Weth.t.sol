@@ -16,6 +16,9 @@ contract WethOperationTest is OperationTest {
 
         comet = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
 
+        minFuzzAmount = minFuzzAmount * 1e10;
+        maxFuzzAmount = maxFuzzAmount * 1e10;
+
         // Set decimals
         decimals = asset.decimals();
 
@@ -44,6 +47,9 @@ contract WethShutdownTest is ShutdownTest {
         asset = ERC20(tokenAddrs["WETH"]);
 
         comet = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
+
+        minFuzzAmount = minFuzzAmount * 1e10;
+        maxFuzzAmount = maxFuzzAmount * 1e10;
 
         // Set decimals
         decimals = asset.decimals();
