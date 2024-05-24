@@ -6,8 +6,9 @@ import {ExtendedTest} from "./ExtendedTest.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import {CompoundV3LenderFactory, CompoundV3Lender} from "../../CompoundV3LenderFactory.sol";
+import {StrategyFactory, Strategy} from "../../StrategyFactory.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
+import {IStrategyFactoryInterface} from "../../interfaces/IStrategyFactoryInterface.sol";
 
 // Inherit the events so they can be checked if desired.
 import {IEvents} from "@tokenized-strategy/interfaces/IEvents.sol";
@@ -24,10 +25,8 @@ contract Setup is ExtendedTest, IEvents {
     // Contract instancees that we will use repeatedly.
     ERC20 public asset;
     IStrategyInterface public strategy;
-
-    CompoundV3LenderFactory public lenderFactory;
-
-    address public comet = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
+    IStrategyFactoryInterface public strategyFactory;
+    address public vault;
 
     mapping(string => address) public tokenAddrs;
 
@@ -44,29 +43,31 @@ contract Setup is ExtendedTest, IEvents {
     uint256 public decimals;
     uint256 public MAX_BPS = 10_000;
 
-    uint256 public maxFuzzAmount = 1e11;
-    uint256 public minFuzzAmount = 100_000;
+    uint256 public maxFuzzAmount = 100e18;
+    uint256 public minFuzzAmount = 1e18;
 
     // Default prfot max unlock time is set for 10 days
     uint256 public profitMaxUnlockTime = 10 days;
 
     function setUp() public virtual {
         _setTokenAddrs();
-
-        lenderFactory = new CompoundV3LenderFactory(
-            management,
-            performanceFeeRecipient,
-            keeper
-        );
-
         // Set asset
-        asset = ERC20(tokenAddrs["USDC"]);
+        asset = ERC20(tokenAddrs["WETH"]);
+        vault = 0xeA1A6307D9b18F8d1cbf1c3Dd6aad8416C06a221;
+
+        //asset = ERC20(tokenAddrs["USDC"]);
+        //vault = 0x08c6F91e2B681FaF5e17227F2a44C307b3C1364C;    
+        //maxFuzzAmount = 10000e6;
+        //minFuzzAmount = 1e6;
 
         // Set decimals
         decimals = asset.decimals();
+        strategyFactory = setUpStrategyFactory();
 
         // Deploy strategy and set variables
-        strategy = IStrategyInterface(setUpStrategy());
+        vm.prank(management);
+        strategy = IStrategyInterface(strategyFactory.newStrategy(address(asset), vault, "Strategy"));
+        setUpStrategy();
 
         factory = strategy.FACTORY();
 
@@ -79,27 +80,31 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(performanceFeeRecipient, "performanceFeeRecipient");
     }
 
-    function setUpStrategy() public returns (address) {
-        // we save the strategy as a IStrategyInterface to give it the needed interface
-        IStrategyInterface _strategy = IStrategyInterface(
+    function setUpStrategyFactory() public returns (IStrategyFactoryInterface) {
+        IStrategyFactoryInterface _factory = IStrategyFactoryInterface(
             address(
-                lenderFactory.newCompoundV3Lender(
-                    address(asset),
-                    "Tokenized Strategy",
-                    comet,
-                    0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5
+                new StrategyFactory(
+                    management,
+                    performanceFeeRecipient,
+                    keeper,
+                    management,
+                    management
                 )
             )
         );
-
-        vm.prank(management);
-        _strategy.acceptManagement();
-
-        vm.prank(management);
-        _strategy.setUniFees(3000, 500);
-
-        return address(_strategy);
+        return _factory;
     }
+
+    function setUpStrategy() public {
+        vm.startPrank(management);
+        strategy.acceptManagement();
+        strategy.setProfitLimitRatio(60535);
+        strategy.setDoHealthCheck(false);
+        strategy.setLossLimitRatio(50_00);
+        strategy.setProfitMaxUnlockTime(0);
+        vm.stopPrank();
+    }
+
 
     function depositIntoStrategy(
         IStrategyInterface _strategy,
